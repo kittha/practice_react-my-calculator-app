@@ -1,10 +1,21 @@
 name: Trigger learning-platform on Pull Request
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, closed]
+  workflow_dispatch:
+  # pull_request:
+  #   types: [opened, synchronize, reopened, closed]
 
 jobs:
+  update-preview-url:
+    if: github.event.deployment_status.state == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get Preview URL
+        id: get_preview_url
+        run: |
+          PREVIEW_URL=${{ github.event.deployment_status.target_url }}
+          echo "PREVIEW_URL=$PREVIEW_URL" >> $GITHUB_OUTPUT
+
   trigger-learning-platform:
     runs-on: ubuntu-latest
     steps:
