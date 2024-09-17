@@ -1,0 +1,50 @@
+name: Trigger learning-platform on Pull Request
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+jobs:
+  trigger-learning-platform:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout techupth
+        uses: actions/checkout@v2
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Get techupth Preview URL
+        if: github.event.action != 'closed'
+        id: deploy2
+        run: |
+          DEPLOYMENT_URL=$(vercel --token=${{ secrets.VERCEL_TOKEN }})
+          echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+
+      - name: Trigger learning-platform Workflow
+        if: github.event.action != 'closed'
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.LEARNING_PLATFORM_ACCESS_TOKEN }}
+          repository: your-org/learning-platform
+          event-type: tuth-pr-opened
+          client-payload: '{"techupth_preview_url": "${{ steps.deploy2.outputs.deployment_url }}", "branch_name": "${{ github.head_ref }}", "commit_sha": "${{ github.sha }}"}'
+
+      - name: Update techupth Environment Variables
+        if: github.event.action != 'closed'
+        run: |
+          vercel env add NEXT_PUBLIC_TECHUP_WEBSITE_BASE_URL ${{ steps.deploy2.outputs.deployment_url }} --git-branch ${{ github.head_ref }} --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Cleanup Environment Variables
+        if: github.event.action == 'closed'
+        run: |
+          vercel env rm NEXT_PUBLIC_TECHUP_WEBSITE_BASE_URL --git-branch ${{ github.head_ref }} --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Trigger learning-platform Cleanup
+        if: github.event.action == 'closed'
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.LEARNING_PLATFORM_ACCESS_TOKEN }}
+          repository: your-org/learning-platform
+          event-type: tuth-pr-closed
+          client-payload: '{"branch_name": "${{ github.head_ref }}"}'
